@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FleetMaster Admin Panel | Driver & Vehicle Management</title>
+<!-- Free CDN Libraries for Supabase, Real XLSX, Real DOCX, and Real PDF -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --primary: #0f294a;
+    --accent: #1d6ce0;
+    --bg: #f3f6fa;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --success: #16a34a;
+  }
+  * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--text); }
+  .login-wrap { max-width: 420px; margin: 70px auto; background: var(--card); padding: 32px; border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+  .login-wrap h1 { margin: 0 0 8px; color: var(--primary); font-size: 24px; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 250px; background: var(--primary); color: #fff; padding: 20px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar h2 { font-size: 19px; margin: 0 0 18px 10px; letter-spacing: 0.5px; }
+  .nav-btn { background: transparent; border: none; color: #cbd5e1; text-align: left; padding: 12px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; }
+  .nav-btn:hover, .nav-btn.active { background: rgba(255,255,255,0.14); color: #fff; }
+  .main { flex: 1; padding: 24px; overflow-x: auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+  .stat-card span { color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; }
+  .stat-card h3 { margin: 8px 0 0; font-size: 28px; color: var(--primary); }
+  .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+  .btn { background: var(--accent); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .btn:hover { opacity: 0.92; }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+  .btn-danger { background: var(--danger); }
+  .btn-success { background: var(--success); }
+  .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { background: #f8fafc; font-weight: 600; color: var(--muted); }
+  .badge { padding: 4px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .badge-red { background: #fee2e2; color: var(--danger); }
+  .badge-amber { background: #fef3c7; color: var(--warning); }
+  .badge-green { background: #dcfce7; color: var(--success); }
+  .hidden { display: none !important; }
+  .alert-box { background: #fffbeb; border-left: 4px solid var(--warning); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  @media(max-width: 768px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 10px; }
+    .sidebar h2 { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SUPABASE CONFIG & LOGIN -->
+<div id="loginView" class="login-wrap">
+  <h1>🚚 FleetMaster Admin</h1>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">Admin Control Panel &bull; Hindi / English</p>
+  <label>Supabase Project URL</label>
+  <input id="sbUrl" placeholder="https://xxxx.supabase.co">
+  <label>Supabase Anon Public Key</label>
+  <input id="sbKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6...">
+  <label>Admin Email</label>
+  <input id="adminEmail" type="email" placeholder="admin@yourcompany.com">
+  <label>Admin Password</label>
+  <input id="adminPass" type="password" placeholder="••••••••">
+  <button class="btn" style="width:100%;margin-top:8px;" onclick="adminLogin()">Secure Admin Login</button>
+  <p id="loginErr" style="color:var(--danger);font-size:13px;margin-top:10px;"></p>
+</div>
+
+<!-- MAIN ADMIN APP -->
+<div id="appView" class="layout hidden">
+  <aside class="sidebar">
+    <h2>🚚 FleetMaster</h2>
+    <button class="nav-btn active" onclick="showTab('dashboard', this)">📊 Dashboard</button>
+    <button class="nav-btn" onclick="showTab('trips', this)">🛣️ All Trips</button>
+    <button class="nav-btn" onclick="showTab('hisab', this)">💰 Daily Hisab & Reports</button>
+    <button class="nav-btn" onclick="showTab('duty', this)">📅 Duty Assignment</button>
+    <button class="nav-btn" onclick="showTab('vehicles', this)">🚛 Vehicles & Expiry</button>
+    <button class="nav-btn" onclick="showTab('maintenance', this)">🔧 Maintenance Logs</button>
+    <button class="nav-btn" onclick="showTab('drivers', this)">👷 Drivers</button>
+    <button class="nav-btn" onclick="showTab('stations', this)">📍 Stations Master</button>
+    <button class="nav-btn" onclick="showTab('backup', this)">💾 Backup & Restore</button>
+    <button class="nav-btn" style="margin-top:auto;color:#fca5a5;" onclick="logout()">🚪 Logout</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h2 id="pageTitle" style="margin:0;">Dashboard Overview</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="syncIndicator" class="badge badge-green">● Live Connected</span>
+        <button class="btn btn-outline btn-sm" onclick="refreshAllData()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div id="expiryAlerts"></div>
+
+    <!-- 1. DASHBOARD TAB -->
+    <section id="tab-dashboard">
+      <div class="grid-4">
+        <div class="stat-card"><span>Total Drivers</span><h3 id="statDrivers">0</h3></div>
+        <div class="stat-card"><span>Total / Active Vehicles</span><h3 id="statVehicles">0 / 0</h3></div>
+        <div class="stat-card"><span>Today's Trips</span><h3 id="statTodayTrips">0</h3></div>
+        <div class="stat-card"><span>This Month Trips</span><h3 id="statMonthTrips">0</h3></div>
+      </div>
+      <div class="grid-4">
+        <div class="stat-card"><span>Total Income (Month)</span><h3 id="statIncome" style="color:var(--success)">₹0</h3></div>
+        <div class="stat-card"><span>Total Expense (Month)</span><h3 id="statExpense" style="color:var(--danger)">₹0</h3></div>
+        <div class="stat-card"><span>Office Advance Given</span><h3 id="statAdvance" style="color:var(--warning)">₹0</h3></div>
+        <div class="stat-card"><span>Net Balance</span><h3 id="statNet">₹0</h3></div>
+      </div>
+      <div class="card">
+        <h3>Recent Trips (Live Feed)</h3>
+        <div style="overflow-x:auto;"><table id="recentTripsTable"></table></div>
+      </div>
+    </section>
+
+    <!-- 2. TRIPS TAB -->
+    <section id="tab-trips" class="hidden">
+      <div class="card">
+        <div class="form-grid">
+          <div><label>Filter Driver</label><select id="filterTripDriver" onchange="renderTrips()"><option value="">All Drivers</option></select></div>
+          <div><label>Filter Vehicle</label><select id="filterTripVehicle" onchange="renderTrips()"><option value="">All Vehicles</option></select></div>
+          <div><label>From Date</label><input type="date" id="filterTripFrom" onchange="renderTrips()"></div>
+          <div><label>To Date</label><input type="date" id="filterTripTo" onchange="renderTrips()"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="btn btn-success btn-sm" onclick="exportTripsXLSX()">Download Excel (.xlsx)</button>
+          <button class="btn btn-sm" onclick="exportTripsDOCX()">Download Word (.docx)</button>
+          <button class="btn btn-danger btn-sm" onclick="exportTripsPDF()">Download PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportTripsCSV()">Download CSV</button>
+        </div>
+        <div style="overflow-x:auto;"><table id="allTripsTable"></table></div>
+      </div>
+    </section>
+
+    <!-- 3. HISAB & FINANCIAL REPORTS TAB -->
+    <section id="tab-hisab" class="hidden">
+      <div class="card">
+        <h3>Financial Summary & Driver-Wise Breakdown</h3>
+        <div class="form-grid">
+          <div><label>Report Period</label>
+            <select id="hisabPeriod" onchange="renderHisab()">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month" selected>This Month</option>
+            </select>
+          </div>
+          <div><label>Driver</label><select id="hisabDriverFilter" onchange="renderHisab()"><option value="">All Drivers</option></select></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="btn btn-success btn-sm" onclick="exportHisabXLSX()">Export Financial Excel (.xlsx)</button>
+          <button class="btn btn-danger btn-sm" onclick="exportHisabPDF()">Export Financial PDF</button>
+        </div>
+        <div id="hisabSummaryCards" class="grid-4"></div>
+        <div style="overflow-x:auto;"><table id="hisabTable"></table></div>
+      </div>
+    </section>
+
+    <!-- 4. DUTY ASSIGNMENT TAB -->
+    <section id="tab-duty" class="hidden">
+      <div class="card">
+        <h3>Assign Vehicle to Driver</h3>
+        <div class="form-grid">
+          <div><label>Duty Date</label><input type="date" id="dutyDate"></div>
+          <div><label>Select Driver</label><select id="dutyDriver"></select></div>
+          <div><label>Select Vehicle</label><select id="dutyVehicle"></select></div>
+          <div><label>Route / Notes</label><input id="dutyNotes" placeholder="e.g., Jaipur to Delhi"></div>
+        </div>
+        <button class="btn" onclick="saveDuty()">Assign Duty</button>
+      </div>
+      <div class="card">
+        <h3>Scheduled Duties</h3>
+        <table id="dutyTable"></table>
+      </div>
+    </section>
+
+    <!-- 5. VEHICLES & DOCUMENTS EXPIRY TAB -->
+    <section id="tab-vehicles" class="hidden">
+      <div class="card">
+        <h3>Add / Update Vehicle & Documents</h3>
+        <div class="form-grid">
+          <div><label>Vehicle Number *</label><input id="vNum" placeholder="RJ14GA1234"></div>
+          <div><label>Vehicle Type</label><select id="vType"><option>Truck</option><option>Tractor</option><option>Pickup</option><option>Dumper</option><option>Other</option></select></div>
+          <div><label>Insurance Expiry</label><input type="date" id="vIns"></div>
+          <div><label>Fitness Expiry</label><input type="date" id="vFit"></div>
+          <div><label>Permit Expiry</label><input type="date" id="vPer"></div>
+          <div><label>Next Service Date</label><input type="date" id="vSrv"></div>
+        </div>
+        <button class="btn" onclick="saveVehicle()">Save Vehicle</button>
+      </div>
+      <div class="card">
+        <h3>Fleet Registry & Document Status</h3>
+        <div style="overflow-x:auto;"><table id="vehiclesTable"></table></div>
+      </div>
+    </section>
+
+    <!-- 6. MAINTENANCE LOGS TAB -->
+    <section id="tab-maintenance" class="hidden">
+      <div class="card">
+        <h3>Log Vehicle Service / Repair</h3>
+        <div class="form-grid">
+          <div><label>Vehicle</label><select id="mVehicle"></select></div>
+          <div><label>Service Date</label><input type="date" id="mDate"></div>
+          <div><label>Repair / Service Details</label><input id="mDesc" placeholder="Engine oil, brake pads..."></div>
+          <div><label>Repair Cost (₹)</label><input type="number" id="mCost" placeholder="0"></div>
+          <div><label>Next Service Due</label><input type="date" id="mNext"></div>
+        </div>
+        <button class="btn" onclick="saveMaintenance()">Save Maintenance Log</button>
+      </div>
+      <div class="card">
+        <h3>Maintenance History</h3>
+        <table id="maintenanceTable"></table>
+      </div>
+    </section>
+
+    <!-- 7. DRIVERS TAB -->
+    <section id="tab-drivers" class="hidden">
+      <div class="card">
+        <h3>Registered Drivers</h3>
+        <p style="font-size:13px;color:var(--muted);">Note: Create Driver Email/Password in Supabase Authentication &rarr; Users, then link their Profile here.</p>
+        <div class="form-grid">
+          <div><label>Auth User UUID</label><input id="dUuid" placeholder="Paste User UUID from Supabase Auth"></div>
+          <div><label>Driver Full Name</label><input id="dName" placeholder="Ramesh Kumar"></div>
+          <div><label>Mobile Number</label><input id="dPhone" placeholder="9876543210"></div>
+          <div><label>License Number</label><input id="dLic" placeholder="RJ14 20200012345"></div>
+        </div>
+        <button class="btn" onclick="saveDriverProfile()">Save Driver Profile</button>
+      </div>
+      <div class="card">
+        <table id="driversTable"></table>
+      </div>
+    </section>
+
+    <!-- 8. STATIONS MASTER TAB -->
+    <section id="tab-stations" class="hidden">
+      <div class="card">
+        <h3>Common Station Master (Deduplicated)</h3>
+        <div style="display:flex;gap:10px;max-width:500px;margin-bottom:14px;">
+          <input id="newStationName" placeholder="Add new station name...">
+          <button class="btn" onclick="addStation()">Add</button>
+        </div>
+        <table id="stationsTable"></table>
+      </div>
+    </section>
+
+    <!-- 9. BACKUP & RESTORE TAB -->
+    <section id="tab-backup" class="hidden">
+      <div class="card">
+        <h3>Complete Company Data Backup & Restore</h3>
+        <p style="font-size:14px;color:var(--muted);">Download a full JSON backup of all Trips, Hisab, Vehicles, Drivers, Maintenance, and Stations before deleting old records.</p>
+        <button class="btn btn-success" onclick="downloadFullBackup()">⬇ Download Complete JSON Backup</button>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <label>Restore From Backup JSON File</label>
+        <input type="file" id="restoreFile" accept=".json" style="max-width:350px;">
+        <button class="btn btn-danger" onclick="restoreFullBackup()">⬆ Restore Backup</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+let sb = null;
+let store = { profiles: [], vehicles: [], trips: [], hisab: [], stations: [], duties: [], maintenance: [] };
+
+// Auto-fill saved Supabase credentials
+window.onload = () => {
+  document.getElementById('sbUrl').value = localStorage.getItem('SB_URL') || '';
+  document.getElementById('sbKey').value = localStorage.getItem('SB_KEY') || '';
+  document.getElementById('dutyDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mDate').value = new Date().toISOString().slice(0,10);
+};
+
+async function adminLogin() {
+  const url = document.getElementById('sbUrl').value.trim();
+  const key = document.getElementById('sbKey').value.trim();
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPass').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+
+  if (!url || !key || !email || !password) {
+    errEl.textContent = 'Please fill all fields.';
+    return;
+  }
+  localStorage.setItem('SB_URL', url);
+  localStorage.setItem('SB_KEY', key);
+
+  sb = window.supabase.createClient(url, key);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { errEl.textContent = error.message; return; }
+
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+  if (!profile || profile.role !== 'admin') {
+    errEl.textContent = 'Access Denied: This account does not have Admin privileges.';
+    await sb.auth.signOut();
+    return;
+  }
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+  await refreshAllData();
+}
+
+async function logout() {
+  if (sb) await sb.auth.signOut();
+  location.reload();
+}
+
+function showTab(tabId, btn) {
+  document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+  document.getElementById('tab-' + tabId).classList.remove('hidden');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('pageTitle').textContent = btn ? btn.textContent.trim() : 'Dashboard';
+}
+
+async function refreshAllData() {
+  const [p, v, t, h, s, d, m] = await Promise.all([
+    sb.from('profiles').select('*').order('full_name'),
+    sb.from('vehicles').select('*').order('vehicle_number'),
+    sb.from('trips').select('*').order('trip_date', { ascending: false }),
+    sb.from('hisab_entries').select('*').order('entry_date', { ascending: false }),
+    sb.from('stations').select('*').order('name'),
+    sb.from('duty_assignments').select('*').order('duty_date', { ascending: false }),
+    sb.from('vehicle_maintenance').select('*').order('service_date', { ascending: false })
+  ]);
+  store.profiles = p.data || [];
+  store.vehicles = v.data || [];
+  store.trips = t.data || [];
+  store.hisab = h.data || [];
+  store.stations = s.data || [];
+  store.duties = d.data || [];
+  store.maintenance = m.data || [];
+
+  populateDropdowns();
+  renderDashboard();
+  renderTrips();
+  renderHisab();
+  renderDuties();
+  renderVehicles();
+  renderMaintenance();
+  renderDrivers();
+  renderStations();
+  checkExpiryReminders();
+}
+
+function driverName(id) {
+  const d = store.profiles.find(x => x.id === id);
+  return d ? d.full_name : 'Unknown';
+}
+
+function populateDropdowns() {
+  const drivers = store.profiles.filter(p => p.role === 'driver');
+  const dOpts = drivers.map(d => `<option value="${d.id}">${d.full_name}</option>`).join('');
+  document.getElementById('filterTripDriver').innerHTML = '<option value="">All Drivers</option>' + dOpts;
+  document.getElementById('hisabDriverFilter').innerHTML = '<option value="">All Drivers</option>' + dOpts;
+  document.getElementById('dutyDriver').innerHTML = dOpts;
+
+  const vOpts = store.vehicles.map(v => `<option value="${v.vehicle_number}">${v.vehicle_number} (${v.vehicle_type})</option>`).join('');
+  const vIdOpts = store.vehicles.map(v => `<option value="${v.id}">${v.vehicle_number}</option>`).join('');
+  document.getElementById('filterTripVehicle').innerHTML = '<option value="">All Vehicles</option>' + vOpts;
+  document.getElementById('dutyVehicle').innerHTML = vIdOpts;
+  document.getElementById('mVehicle').innerHTML = vIdOpts;
+}
+
+function checkExpiryReminders() {
+  const today = new Date();
+  const warnDays = 15;
+  let alerts = [];
+  store.vehicles.forEach(v => {
+    [['Insurance', v.insurance_expiry], ['Fitness', v.fitness_expiry], ['Permit', v.permit_expiry], ['Service', v.next_service_date]].forEach(([label, dt]) => {
+      if (!dt) return;
+      const diff = Math.ceil((new Date(dt) - today) / (1000*60*60*24));
+      if (diff <= warnDays) {
+        alerts.push(`<b>${v.vehicle_number}</b>: ${label} ${diff < 0 ? 'EXPIRED (' + Math.abs(diff) + ' days ago)' : 'expires in ' + diff + ' days (' + dt + ')'}`);
+      }
+    });
+  });
+  document.getElementById('expiryAlerts').innerHTML = alerts.length
+    ? `<div class="alert-box">⚠️ <b>Document & Service Alerts:</b><br>${alerts.join(' &bull; ')}</div>` : '';
+}
+
+function renderDashboard() {
+  const todayStr = new Date().toISOString().slice(0,10);
+  const monthStr = todayStr.slice(0,7);
+  const drivers = store.profiles.filter(p => p.role === 'driver');
+  const activeVeh = store.vehicles.filter(v => v.status === 'active');
+  const todayTrips = store.trips.filter(t => t.trip_date === todayStr);
+  const monthTrips = store.trips.filter(t => (t.trip_date || '').startsWith(monthStr));
+
+  const mHisab = store.hisab.filter(h => (h.entry_date || '').startsWith(monthStr));
+  const inc = mHisab.filter(h => h.entry_type === 'Income').reduce((s,x) => s + Number(x.amount), 0);
+  const exp = mHisab.filter(h => h.entry_type === 'Expense').reduce((s,x) => s + Number(x.amount), 0);
+  const adv = mHisab.filter(h => h.entry_type === 'Advance').reduce((s,x) => s + Number(x.amount), 0);
+
+  document.getElementById('statDrivers').textContent = drivers.length;
+  document.getElementById('statVehicles').textContent = `${store.vehicles.length} / ${activeVeh.length}`;
+  document.getElementById('statTodayTrips').textContent = todayTrips.length;
+  document.getElementById('statMonthTrips').textContent = monthTrips.length;
+  document.getElementById('statIncome').textContent = '₹' + inc.toLocaleString('en-IN');
+  document.getElementById('statExpense').textContent = '₹' + exp.toLocaleString('en-IN');
+  document.getElementById('statAdvance').textContent = '₹' + adv.toLocaleString('en-IN');
+  document.getElementById('statNet').textContent = '₹' + (inc - exp).toLocaleString('en-IN');
+
+  const rows = store.trips.slice(0, 10).map(t => `
+    <tr>
+      <td>${t.trip_date}</td><td>${driverName(t.driver_id)}</td><td><b>${t.vehicle_number}</b></td>
+      <td>${t.loading_station} &rarr; ${t.unloading_station}</td>
+      <td>${t.goods_name} (${t.quantity} ${t.unit})</td><td>${t.bilty_number || '-'}</td>
+    </tr>`).join('');
+  document.getElementById('recentTripsTable').innerHTML = `<tr><th>Date</th><th>Driver</th><th>Vehicle</th><th>Route</th><th>Goods</th><th>Bilty</th></tr>` + rows;
+}
+
+function getFilteredTrips() {
+  const dId = document.getElementById('filterTripDriver').value;
+  const vNum = document.getElementById('filterTripVehicle').value;
+  const fDate = document.getElementById('filterTripFrom').value;
+  const tDate = document.getElementById('filterTripTo').value;
+  return store.trips.filter(t => {
+    if (dId && t.driver_id !== dId) return false;
+    if (vNum && t.vehicle_number !== vNum) return false;
+    if (fDate && t.trip_date < fDate) return false;
+    if (tDate && t.trip_date > tDate) return false;
+    return true;
+  });
+}
+
+function renderTrips() {
+  const list = getFilteredTrips();
+  const rows = list.map(t => `
+    <tr>
+      <td>${t.trip_date}</td><td>${driverName(t.driver_id)}</td><td>${t.vehicle_number}</td>
+      <td>${t.loading_station}</td><td>${t.unloading_station}</td><td>${t.via_stations || '-'}</td>
+      <td>${t.goods_name}</td><td>${t.quantity} ${t.unit}</td><td>${t.bilty_number || '-'}</td>
+      <td>${t.kilometres || '-'}</td><td>${t.diesel_litres || '-'}</td>
+    </tr>`).join('');
+  document.getElementById('allTripsTable').innerHTML = `<tr><th>Date</th><th>Driver</th><th>Vehicle</th><th>From</th><th>To</th><th>Via</th><th>Goods</th><th>Qty</th><th>Bilty</th><th>KM</th><th>Diesel</th></tr>` + rows;
+}
+
+function renderHisab() {
+  const period = document.getElementById('hisabPeriod').value;
+  const dId = document.getElementById('hisabDriverFilter').value;
+  const today = new Date().toISOString().slice(0,10);
+  const weekAgo = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
+  const monthPrefix = today.slice(0,7);
+
+  const list = store.hisab.filter(h => {
+    if (dId && h.driver_id !== dId) return false;
+    if (period === 'today' && h.entry_date !== today) return false;
+    if (period === 'week' && h.entry_date < weekAgo) return false;
+    if (period === 'month' && !(h.entry_date || '').startsWith(monthPrefix)) return false;
+    return true;
+  });
+
+  const inc = list.filter(x => x.entry_type === 'Income').reduce((s,x) => s + Number(x.amount), 0);
+  const exp = list.filter(x => x.entry_type === 'Expense').reduce((s,x) => s + Number(x.amount), 0);
+  const adv = list.filter(x => x.entry_type === 'Advance').reduce((s,x) => s + Number(x.amount), 0);
+
+  document.getElementById('hisabSummaryCards').innerHTML = `
+    <div class="stat-card"><span>Trip & Other Income</span><h3 style="color:var(--success)">₹${inc}</h3></div>
+    <div class="stat-card"><span>Total Expenses</span><h3 style="color:var(--danger)">₹${exp}</h3></div>
+    <div class="stat-card"><span>Office Advance (Separate)</span><h3 style="color:var(--warning)">₹${adv}</h3></div>
+    <div class="stat-card"><span>Advance Balance (Adv - Exp)</span><h3>₹${adv - exp}</h3></div>
+  `;
+
+  const rows = list.map(h => `
+    <tr>
+      <td>${h.entry_date}</td><td>${driverName(h.driver_id)}</td>
+      <td><span class="badge ${h.entry_type==='Income'?'badge-green':h.entry_type==='Expense'?'badge-red':'badge-amber'}">${h.entry_type}</span></td>
+      <td>${h.category}</td><td><b>₹${h.amount}</b></td><td>${h.details || '-'}</td>
+    </tr>`).join('');
+  document.getElementById('hisabTable').innerHTML = `<tr><th>Date</th><th>Driver</th><th>Type</th><th>Category</th><th>Amount</th><th>Details</th></tr>` + rows;
+}
+
+async function saveDuty() {
+  const payload = {
+    duty_date: document.getElementById('dutyDate').value,
+    driver_id: document.getElementById('dutyDriver').value,
+    vehicle_id: document.getElementById('dutyVehicle').value,
+    notes: document.getElementById('dutyNotes').value
+  };
+  const { error } = await sb.from('duty_assignments').upsert(payload, { onConflict: 'duty_date,driver_id' });
+  if (error) return alert(error.message);
+  await refreshAllData();
+}
+
+function renderDuties() {
+  const rows = store.duties.map(d => {
+    const v = store.vehicles.find(x => x.id === d.vehicle_id);
+    return `<tr><td>${d.duty_date}</td><td>${driverName(d.driver_id)}</td><td><b>${v ? v.vehicle_number : '-'}</b></td><td>${d.notes || '-'}</td></tr>`;
+  }).join('');
+  document.getElementById('dutyTable').innerHTML = `<tr><th>Date</th><th>Driver</th><th>Assigned Vehicle</th><th>Notes</th></tr>` + rows;
+}
+
+async function saveVehicle() {
+  const payload = {
+    vehicle_number: document.getElementById('vNum').value.trim().toUpperCase(),
+    vehicle_type: document.getElementById('vType').value,
+    insurance_expiry: document.getElementById('vIns').value || null,
+    fitness_expiry: document.getElementById('vFit').value || null,
+    permit_expiry: document.getElementById('vPer').value || null,
+    next_service_date: document.getElementById('vSrv').value || null
+  };
+  if (!payload.vehicle_number) return alert('Enter Vehicle Number');
+  const { error } = await sb.from('vehicles').upsert(payload, { onConflict: 'vehicle_number' });
+  if (error) return alert(error.message);
+  await refreshAllData();
+}
+
+function renderVehicles() {
+  const rows = store.vehicles.map(v => `
+    <tr>
+      <td><b>${v.vehicle_number}</b></td><td>${v.vehicle_type}</td>
+      <td>${v.insurance_expiry || '-'}</td><td>${v.fitness_expiry || '-'}</td>
+      <td>${v.permit_expiry || '-'}</td><td>${v.next_service_date || '-'}</td>
+    </tr>`).join('');
+  document.getElementById('vehiclesTable').innerHTML = `<tr><th>Number</th><th>Type</th><th>Insurance Exp</th><th>Fitness Exp</th><th>Permit Exp</th><th>Next Service</th></tr>` + rows;
+}
+
+async function saveMaintenance() {
+  const payload = {
+    vehicle_id: document.getElementById('mVehicle').value,
+    service_date: document.getElementById('mDate').value,
+    description: document.getElementById('mDesc').value,
+    cost: Number(document.getElementById('mCost').value || 0),
+    next_due_date: document.getElementById('mNext').value || null
+  };
+  const { error } = await sb.from('vehicle_maintenance').insert(payload);
+  if (error) return alert(error.message);
+  if (payload.next_due_date) {
+    await sb.from('vehicles').update({ next_service_date: payload.next_due_date, last_service_date: payload.service_date }).eq('id', payload.vehicle_id);
+  }
+  await refreshAllData();
+}
+
+function renderMaintenance() {
+  const rows = store.maintenance.map(m => {
+    const v = store.vehicles.find(x => x.id === m.vehicle_id);
+    return `<tr><td>${m.service_date}</td><td><b>${v ? v.vehicle_number : '-'}</b></td><td>${m.description}</td><td>₹${m.cost}</td><td>${m.next_due_date || '-'}</td></tr>`;
+  }).join('');
+  document.getElementById('maintenanceTable').innerHTML = `<tr><th>Date</th><th>Vehicle</th><th>Work Done</th><th>Cost</th><th>Next Due</th></tr>` + rows;
+}
+
+async function saveDriverProfile() {
+  const payload = {
+    id: document.getElementById('dUuid').value.trim(),
+    full_name: document.getElementById('dName').value.trim(),
+    phone: document.getElementById('dPhone').value.trim(),
+    license_number: document.getElementById('dLic').value.trim(),
+    role: 'driver'
+  };
+  if (!payload.id || !payload.full_name) return alert('UUID and Name required');
+  const { error } = await sb.from('profiles').upsert(payload);
+  if (error) return alert(error.message);
+  await refreshAllData();
+}
+
+function renderDrivers() {
+  const rows = store.profiles.filter(p => p.role === 'driver').map(d => `
+    <tr><td><b>${d.full_name}</b></td><td>${d.phone || '-'}</td><td>${d.license_number || '-'}</td><td><span class="badge badge-green">Active</span></td></tr>`).join('');
+  document.getElementById('driversTable').innerHTML = `<tr><th>Driver Name</th><th>Phone</th><th>License</th><th>Status</th></tr>` + rows;
+}
+
+async function addStation() {
+  const name = document.getElementById('newStationName').value.trim();
+  if (!name) return;
+  const norm = name.toLowerCase().replace(/\s+/g, ' ');
+  const { error } = await sb.from('stations').upsert({ name, normalized_name: norm }, { onConflict: 'normalized_name' });
+  if (error) return alert(error.message);
+  document.getElementById('newStationName').value = '';
+  await refreshAllData();
+}
+
+async function editStation(id, oldName) {
+  const newName = prompt('Edit Station Name:', oldName);
+  if (!newName || newName.trim() === oldName) return;
+  await sb.from('stations').update({ name: newName.trim(), normalized_name: newName.trim().toLowerCase() }).eq('id', id);
+  await refreshAllData();
+}
+
+async function deleteStation(id) {
+  if (!confirm('Delete this station?')) return;
+  await sb.from('stations').delete().eq('id', id);
+  await refreshAllData();
+}
+
+function renderStations() {
+  const rows = store.stations.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="editStation('${s.id}', '${s.name.replace(/'/g, "\'")}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStation('${s.id}')">Delete</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('stationsTable').innerHTML = `<tr><th>Station Name</th><th>Actions</th></tr>` + rows;
+}
+
+// ============================================================================
+// REAL EXPORT ENGINES (.XLSX, .DOCX, .PDF, .CSV)
+// ============================================================================
+function exportTripsXLSX() {
+  const rows = getFilteredTrips().map(t => ({
+    Date: t.trip_date, Driver: driverName(t.driver_id), Vehicle: t.vehicle_number,
+    From: t.loading_station, To: t.unloading_station, Via: t.via_stations || '',
+    Goods: t.goods_name, Quantity: t.quantity, Unit: t.unit,
+    Bilty: t.bilty_number || '', KM: t.kilometres || '', Diesel: t.diesel_litres || '', Notes: t.notes || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Trips Report');
+  XLSX.writeFile(wb, 'FleetMaster_Trips_Report.xlsx');
+}
+
+function exportTripsCSV() {
+  const rows = getFilteredTrips().map(t => ({
+    Date: t.trip_date, Driver: driverName(t.driver_id), Vehicle: t.vehicle_number,
+    From: t.loading_station, To: t.unloading_station, Goods: t.goods_name, Qty: t.quantity, Unit: t.unit, Bilty: t.bilty_number || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const csv = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob(["﻿" + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'FleetMaster_Trips.csv'; a.click();
+}
+
+function exportTripsPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('landscape');
+  doc.text('FleetMaster - Company Trip Report', 14, 15);
+  const body = getFilteredTrips().map(t => [t.trip_date, driverName(t.driver_id), t.vehicle_number, t.loading_station, t.unloading_station, `${t.goods_name} (${t.quantity} ${t.unit})`, t.bilty_number || '-']);
+  doc.autoTable({ head: [['Date', 'Driver', 'Vehicle', 'From', 'To', 'Goods & Qty', 'Bilty']], body, startY: 22 });
+  doc.save('FleetMaster_Trips_Report.pdf');
+}
+
+async function exportTripsDOCX() {
+  const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun } = window.docx;
+  const trips = getFilteredTrips();
+  const tableRows = [
+    new TableRow({ children: ['Date', 'Driver', 'Vehicle', 'From -> To', 'Goods', 'Bilty'].map(h => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })] })) }),
+    ...trips.map(t => new TableRow({
+      children: [t.trip_date, driverName(t.driver_id), t.vehicle_number, `${t.loading_station} -> ${t.unloading_station}`, `${t.goods_name} (${t.quantity} ${t.unit})`, t.bilty_number || '-']
+        .map(val => new TableCell({ children: [new Paragraph(String(val))] }))
+    }))
+  ];
+  const doc = new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun({ text: 'FleetMaster Trip Report', bold: true, size: 32 })] }), new Table({ rows: tableRows })] }] });
+  const blob = await Packer.toBlob(doc);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'FleetMaster_Trips_Report.docx'; a.click();
+}
+
+function exportHisabXLSX() {
+  const rows = store.hisab.map(h => ({ Date: h.entry_date, Driver: driverName(h.driver_id), Type: h.entry_type, Category: h.category, Amount: h.amount, Details: h.details || '' }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Financial Hisab');
+  XLSX.writeFile(wb, 'FleetMaster_Hisab_Report.xlsx');
+}
+
+function exportHisabPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text('FleetMaster - Financial Hisab Report', 14, 15);
+  const body = store.hisab.map(h => [h.entry_date, driverName(h.driver_id), h.entry_type, h.category, `Rs. ${h.amount}`, h.details || '-']);
+  doc.autoTable({ head: [['Date', 'Driver', 'Type', 'Category', 'Amount', 'Details']], body, startY: 22 });
+  doc.save('FleetMaster_Hisab_Report.pdf');
+}
+
+// ============================================================================
+// FULL BACKUP & RESTORE
+// ============================================================================
+function downloadFullBackup() {
+  const backupData = { exported_at: new Date().toISOString(), ...store };
+  const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `FleetMaster_Full_Backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+async function restoreFullBackup() {
+  const file = document.getElementById('restoreFile').files[0];
+  if (!file) return alert('Select a JSON backup file first.');
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  if (parsed.stations?.length) await sb.from('stations').upsert(parsed.stations);
+  if (parsed.vehicles?.length) await sb.from('vehicles').upsert(parsed.vehicles);
+  if (parsed.trips?.length) await sb.from('trips').upsert(parsed.trips);
+  if (parsed.hisab?.length) await sb.from('hisab_entries').upsert(parsed.hisab);
+  alert('Backup Restored Successfully!');
+  await refreshAllData();
+}
+</script>
+</body>
+</html>

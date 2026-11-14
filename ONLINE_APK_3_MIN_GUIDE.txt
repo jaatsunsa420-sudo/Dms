@@ -1,0 +1,20 @@
+=====================================================================
+  BINA LAPTOP SETUP KE ONLINE APK BANANE KA 3-MINUTE TARIKA
+=====================================================================
+
+Aapko apne laptop mein Android Studio ya Flutter install karne ki koi zaroorat nahi hai!
+Is ZIP mein '.github/workflows/build_apk.yml' pehle se laga diya gaya hai jo GitHub par upload karte hi apne aap APK bana dega:
+
+STEP 1:
+1. https://github.com par Free account banayein.
+2. Upar '+' par click karke 'New repository' banayein (Naam: driver-app).
+3. 'uploading an existing file' par click karein.
+4. Is ZIP file ko Extract karke uske andar ki SAARI files aur folders (.github, lib, pubspec.yaml, etc.) ko wahan Drag & Drop karke 'Commit changes' daba dein.
+
+STEP 2 (APK DOWNLOAD):
+1. GitHub par upar 'Actions' tab par click karein.
+2. Wahan 'Build Android APK Automatically' chal raha hoga (3-4 minute mein Green tick aa jayega).
+3. Us par click karein -> Neeche 'Artifacts' mein 'Driver-Manager-Android-APK' par click karein.
+4. Seedha aapki APK file download ho jayegi! Use Samsung phone mein install kar lein.
+
+NOTE: App open hone par Login screen par hi Supabase URL aur Anon Key daalne ka box diya gaya hai, isliye code edit karne ki bhi zaroorat nahi hai!
